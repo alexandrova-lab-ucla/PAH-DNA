@@ -1,0 +1,152 @@
+#############################################################
+## JOB DESCRIPTION                                         ##
+#############################################################
+# HMMM DVPC/DVPS 80/20 Na+
+# 2fs t/s
+# 
+#############################################################
+## ADJUSTABLE PARAMETERS                                   ##
+#############################################################
+
+structure          dna_Na_WI.psf 
+coordinates        dna_Na_WI.pdb
+
+outputName         forward_IA-on3 ### CHANGED ###***
+#restartName	   forward_IA-on3 ### CHANGED ###***
+binaryoutput       yes
+binaryrestart	   yes	      ### CHANGED ###***
+
+# NOTE: Do not set the initial velocity temperature if you 
+# have also specified a .vel restart file!
+bincoordinates          aqua-equil2.restart.coor
+binvelocities           aqua-equil2.restart.vel
+extendedsystem          aqua-equil2.restart.xsc
+
+#set firsttime      0
+#firsttimestep $firsttime
+
+set temperature    300
+#temperature $temperature
+#
+#cellBasisVector1                 60     0.0      0.0
+#cellBasisVector2                0.0      60      0.0
+#cellBasisVector3                0.0     0.0      55
+#cellOrigin                      0.0     0.0      0.0
+
+#############################################################
+## SIMULATION PARAMETERS                                   ##
+#############################################################
+
+# Input
+paraTypeCharmm	    on
+# use bond for water
+parameters          ../toppar/par_all36_prot.prm
+parameters          ../toppar/par_all36_na.prm
+parameters          ../toppar/par_all36_carb.prm
+parameters          ../toppar/par_all36_lipid.prm
+parameters          ../toppar/par_all36_cgenff.prm
+
+parameters	    ../toppar/toppar_water_ions.str
+
+parameters          ./N6-dA-BZA-PHR_IUPAC_atoms.str
+
+# Force-Field Parameters **ALL SET**
+exclude             scaled1-4
+1-4scaling          1.0
+switching           on
+switchdist          10
+cutoff              12
+pairlistdist        14
+
+# Integrator Parameters **ALL SET**
+timestep            2  ;# 1fs/step
+rigidBonds          all  ;# needed for 2fs steps
+nonbondedFreq       1
+fullElectFrequency  2  
+stepspercycle       20
+
+#PME (for full-system periodic electrostatics) **ALL SET**
+if {1} {
+PME                 yes
+PMEGridSpacing      1.0
+}
+
+# Constant Temperature Control **ALL SET**
+langevin            on    ;# do langevin dynamics
+langevinDamping     2.0 ;# damping coefficient (gamma); let's try 0.5 /ps
+langevinTemp        $temperature
+langevinHydrogen    off    ;# don't couple langevin bath to hydrogens
+
+# perform constant pressure simulation **ALL SET**
+if {1} {
+langevinPiston        on      ;# turn this off for constant volume sim
+langevinPistonTarget  1.01325 ;#  in bar -> 1 atm
+langevinPistonPeriod  200
+langevinPistonDecay   100
+langevinPistonTemp    $temperature
+
+useGroupPressure      yes
+}
+
+wrapwater	    on
+#wrapall	    on
+
+xstFreq             2500 ### CHANGED ###*** 
+outputEnergies      2500 ### CHANGED ###***
+dcdfreq             2500 ### CHANGED ###***
+restartfreq         250000 ### CHANGED ###***
+outputPressure      2500 ### CHANGED ###***
+outputTiming        2500 ### CHANGED ###***
+
+
+#############################################################
+## EXTRA PARAMETERS                                        ##
+#############################################################
+
+#Constrained Atoms Constraint (set PDB beta-column to 1)
+#if {0} {
+#constraints       on
+#consref           dna_Na_WI_restrain_BPs.pdb
+#conskfile         dna_Na_WI_restrain_BPs.pdb
+#conskcol          B
+#}
+
+
+# Put here any custom parameters that are specific to 
+# this job (e.g., SMD, TclForces, etc...)
+
+if {1} {
+extraBonds on
+extraBondsFile extrabond.txt
+}
+
+#############################################################
+## EXECUTION SCRIPT                                        ##
+#############################################################
+#minimize 4800
+#run	24000000 ### CHANGED ###***
+
+# FEP PARAMETERS
+
+source                  ../tools/fep.tcl
+
+alch                    on
+alchType                FEP
+alchFile                dna_Na_WI.fep
+alchCol                 B
+alchOutFile             forward_IA-on3.fepout
+alchOutFreq             10
+
+alchVdwLambdaEnd        1.0
+alchElecLambdaStart     0.5
+alchVdWShiftCoeff       4.0
+alchDecouple            on
+
+alchEquilSteps		100000
+#200 ps of equilibration
+set numSteps		500000
+#800 ps of production
+
+runFEP 0.0 1.0 0.05 $numSteps
+
+

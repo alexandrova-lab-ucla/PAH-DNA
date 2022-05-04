@@ -1,0 +1,155 @@
+#############################################################
+## JOB DESCRIPTION                                         ##
+#############################################################
+# HMMM DVPC/DVPS 80/20 Na+
+# 2fs t/s
+# 
+#############################################################
+## ADJUSTABLE PARAMETERS                                   ##
+#############################################################
+
+structure          dna_Na_WI.psf 
+coordinates        dna_Na_WI.pdb
+
+outputName         dna_Na_WI_min2
+binaryoutput       yes
+
+# NOTE: Do not set the initial velocity temperature if you 
+# have also specified a .vel restart file!
+set temperature    300
+temperature         $temperature
+
+proc get_first_ts { xscfile } {
+  set fd [open $xscfile r]
+  gets $fd
+  gets $fd
+  gets $fd line
+  set ts [lindex $line 0]
+  close $fd
+  return $ts
+}
+#set firsttime [get_first_ts $inputName.restart.xsc]
+set firsttime      0
+firsttimestep $firsttime
+
+cellBasisVector1                 70     0.0      0.0
+cellBasisVector2                0.0      70      0.0
+cellBasisVector3                0.0     0.0      70
+cellOrigin                      0.0     0.0      0.0
+
+#############################################################
+## SIMULATION PARAMETERS                                   ##
+#############################################################
+
+# Input
+paraTypeCharmm	    on
+# use bond for water
+parameters          ../toppar/par_all36_prot.prm
+parameters          ../toppar/par_all36_na.prm
+parameters          ../toppar/par_all36_carb.prm
+parameters          ../toppar/par_all36_lipid.prm
+parameters          ../toppar/par_all36_cgenff.prm
+
+parameters	    ../toppar/toppar_water_ions.str
+
+parameters          ./N6-dA-BZA-PHR_IUPAC_atoms.str
+
+# Force-Field Parameters **ALL SET**
+exclude             scaled1-4
+1-4scaling          1.0
+switching           on
+switchdist          10
+cutoff              12
+pairlistdist        14
+
+# Integrator Parameters **ALL SET**
+timestep            2  ;# 1fs/step
+rigidBonds          all  ;# needed for 2fs steps
+nonbondedFreq       1
+fullElectFrequency  2  
+stepspercycle       20
+
+#PME (for full-system periodic electrostatics) **ALL SET**
+if {1} {
+PME                 yes
+PMEGridSpacing      1.0
+}
+
+# Constant Temperature Control **ALL SET**
+langevin            on    ;# do langevin dynamics
+langevinDamping     2.0 ;# damping coefficient (gamma); let's try 0.5 /ps
+langevinTemp        $temperature
+langevinHydrogen    off    ;# don't couple langevin bath to hydrogens
+
+# perform constant pressure simulation **ALL SET**
+if {1} {
+langevinPiston        on      ;# turn this off for constant volume sim
+langevinPistonTarget  1.01325 ;#  in bar -> 1 atm
+langevinPistonPeriod  200
+langevinPistonDecay   100
+langevinPistonTemp    $temperature
+
+useGroupPressure      yes
+}
+
+wrapwater	    on
+#wrapall	    on
+
+xstFreq             100 
+outputEnergies      100
+dcdfreq             100
+restartfreq         100
+outputPressure      100
+
+
+#############################################################
+## EXTRA PARAMETERS                                        ##
+#############################################################
+
+#Constrained Atoms Constraint (set PDB beta-column to 1)
+if {1} {
+constraints       on
+consref           dna_Na_WIbeta.pdb
+conskfile         dna_Na_WIbeta.pdb
+conskcol          B
+}
+
+
+# Put here any custom parameters that are specific to 
+# this job (e.g., SMD, TclForces, etc...)
+
+#if {1} {
+#extraBonds on
+#}
+
+#############################################################
+## EXECUTION SCRIPT                                        ##
+#############################################################
+
+#minimize 1200
+#run	2400000
+
+# FEP PARAMETERS
+
+source                  ../tools/fep.tcl
+
+alch                    on
+alchType                FEP
+alchFile                dna_Na_WI.fep
+alchCol                 B
+alchOutFile             min2.fepout
+alchOutFreq             200
+
+alchVdwLambdaEnd        1.0
+alchElecLambdaStart     0.5
+alchVdWShiftCoeff       4.0
+alchDecouple            on
+
+alchEquilSteps          0
+set numSteps            0
+
+set numMinSteps		1000
+
+runFEPmin 0.0 0.0 0.0 $numSteps $numMinSteps $temperature
+
+
